@@ -1,14 +1,14 @@
-#include "minutea.h"
+#include "minutiae.h"
 #include <qmath.h>
 
-Minutea::Minutea()
+Minutiae::Minutiae()
 {
     x = -1;
     y = -1;
     type = false;
 }
 
-Minutea::Minutea(int _x, int _y, bool _type, int _index)
+Minutiae::Minutiae(int _x, int _y, bool _type, int _index)
 {
     x = _x;
     y = _y;
@@ -17,7 +17,7 @@ Minutea::Minutea(int _x, int _y, bool _type, int _index)
     checked = false;
 }
 
-double Minutea::distance(Minutea *m)
+double Minutiae::distance(Minutiae *m)
 {
     return qSqrt(qPow((double)m->x - (double)x, 2) + qPow((double)m->y - (double)y, 2));
 }
