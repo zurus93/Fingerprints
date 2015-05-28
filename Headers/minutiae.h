@@ -9,6 +9,7 @@ public:
     int x;
     int y;
     int index;
+    int id;
     bool type;
     bool checked;
     QList<Minutiae*> neighbours;
