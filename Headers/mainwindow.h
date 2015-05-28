@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QTextStream>
 #include "minutiae.h"
+#include "dbhelper.h"
 
 namespace Ui {
 class MainWindow;
@@ -35,10 +36,27 @@ private:
     /* Type of searched minutiae */
     bool TYPE;
 
+    /* Id of image (to use with database) */
+    int ID;
+
+    int BEST_VERTICES;
+
+    double BEST_TRESHOLD;
+
+    /* DataBase of fingerprints*/
+    QSqlDatabase db;
+    DatabaseHelper dbHelper;
+
     QImage image[2];
     QImage imageCopy[2];
+    QImage bestImage;
     int **K3MImageArray[2];
     bool **checkedPixels[2];
+    bool **foundMinutiaes[2];
+    bool firstLoad[2];
+    bool findMatch;
+    bool betterMatchFound;
+    int indexOfImageName;
     QList<Minutiae*> minutiaes[2];
 
     QString lastFileName;
@@ -53,7 +71,7 @@ private:
      * check pixel color
      *
      * @param:  rgb - color
-     * @return: true - black, false - while
+     * @return: true - black, false - white
      */
     bool isBlack(QRgb rgb);
 
@@ -187,6 +205,13 @@ private:
      */
     void makeGraph();
 
+    /*
+     * @DATABASE
+     * Inserts neigbours of minutiae into database
+     * @param: minutiae - minutiae of which neigmours we want to insert
+     */
+    void insertNeighboursIntoDatabase(Minutiae* minutiae);
+
 
 private slots:
     void on_loadButton_clicked();
@@ -194,6 +219,7 @@ private slots:
     void on_findButton_clicked();
     void on_findButton2_clicked();
     void on_checkButton_clicked();
+    void on_findMatchButton_clicked();
 };
 
 #endif // MAINWINDOW_H
