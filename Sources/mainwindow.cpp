@@ -11,6 +11,22 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
     lastFileName = ".";
+    firstLoad[0] = false;
+    firstLoad[1] = false;
+    findMatch = false;
+
+    db = QSqlDatabase::addDatabase( "QSQLITE" );
+
+    db.setDatabaseName( "./fingerprintsdatabase.db" );
+
+    if( !db.open() )
+    {
+      qDebug() << db.lastError();
+      qFatal( "Failed to connect." );
+    }
+
+    dbHelper.setDatabase(db);
+    dbHelper.createTables();
 }
 
 MainWindow::~MainWindow()
@@ -20,9 +36,11 @@ MainWindow::~MainWindow()
         for (int i = 0; i < image[0].width(); ++i)
         {
             delete checkedPixels[0][i];
+            delete foundMinutiaes[0][i];
             delete K3MImageArray[0][i];
         }
         delete[] checkedPixels[0];
+        delete[] foundMinutiaes[0];
         delete[] K3MImageArray[0];
     }
 
@@ -31,13 +49,17 @@ MainWindow::~MainWindow()
         for (int i = 0; i < image[1].width(); ++i)
         {
             delete checkedPixels[1][i];
+            delete foundMinutiaes[1][i];
             delete K3MImageArray[1][i];
         }
         delete[] checkedPixels[1];
+        delete[] foundMinutiaes[1];
         delete[] K3MImageArray[1];
     }
 
     delete ui;
+
+    db.close();
 }
 
 QTextStream& MainWindow::qStdOut()
@@ -58,10 +80,22 @@ bool MainWindow::isBlack(QRgb rgb)
 
 void MainWindow::drawRectangle(QPoint point)
 {
+    int length = 4;
+
+    for (int i = -2 * length; i <= 2 * length; ++i)
+    {
+        for (int j = -2 * length; j <= 2 * length; ++j)
+        {
+            if (point.x() + i < 0 || point.x() + i >= image[INDEX].width() || point.y() + j < 0 || point.y() + j >= image[INDEX].height())
+                continue;
+            if (foundMinutiaes[INDEX][point.x() + i][point.y() + j])
+                return;
+        }
+    }
+
     if (checkIfAtBorder(point.x(), point.y()))
         return;
 
-    int length = 4;
 
     /* Check and find correct bifurcation */
     if (!isBlack(image[INDEX].pixel(point.x(), point.y())))
@@ -70,6 +104,8 @@ void MainWindow::drawRectangle(QPoint point)
         {
             for (int j = -length; j <= length; ++j)
             {
+                if (point.x() + i < 0 || point.x() + i >= image[INDEX].width() || point.y() + j < 0 || point.y() + j >= image[INDEX].height())
+                    continue;
                 if (isBlack(image[INDEX].pixel(point.x() + i, point.y() + j)))
                 {
                     if (isBifurcation(point.x() + i, point.y() + j))
@@ -85,40 +121,35 @@ void MainWindow::drawRectangle(QPoint point)
     }
 
     /* Draw rectangle */
-    qStdOut() << "Entered drawRectangle(" << point.x() << ", " << point.y() << ")" << endl;
-
-    if (point.y() - length >= 0 && point.x() - length >= 0 && point.x() + length < image[INDEX].width())
+    if (point.y() - length >= 0 && point.x() - length >= 0 && point.x() + length < image[INDEX].width() && point.y() + length < image[INDEX].height())
     {
         for (int i = -length; i <= length; ++i)
-            image[INDEX].setPixel(point.x() + i, point.y() - 5, COLOR.rgb());
-    }
-    if (point.x() - length >= 0 && point.y() - length >= 0 && point.y() + length < image[INDEX].height())
-    {
-        for (int i = -length; i <= length; ++i)
+        {
+            image[INDEX].setPixel(point.x() + i, point.y() - length, COLOR.rgb());
             image[INDEX].setPixel(point.x() - length, point.y() + i, COLOR.rgb());
-    }
-    if (point.y() + length < image[INDEX].height() && point.x() - length >= 0 && point.x() + length < image[INDEX].width())
-    {
-        for (int i = -length; i <= length; ++i)
             image[INDEX].setPixel(point.x() + i, point.y() + length, COLOR.rgb());
-    }
-    if (point.x() + length < image[INDEX].width() && point.y() - length >= 0 && point.y() + length < image[INDEX].height())
-    {
-        for (int i = -length; i <= length; ++i)
             image[INDEX].setPixel(point.x() + length, point.y() + i, COLOR.rgb());
+        }
     }
+
     image[INDEX].setPixel(point.x(), point.y(), qRgb(255, 0, 0));
 
     /* Add minutiae to list of found minutiaes */
+    foundMinutiaes[INDEX][point.x()][point.y()] = true;
     minutiaes[INDEX].push_back(new Minutiae(point.x(), point.y(), TYPE, minutiaes[INDEX].count()));
+    //int id = dbHelper.insertMinutiae(ID, point.x(), point.y(), TYPE, minutiaes[INDEX].count());
+    //minutiaes[INDEX].last()->id = id;
 }
 
 bool MainWindow::checkIfAtBorder(int x, int y)
 {
+    if (x < 0 || x >= image[INDEX].width() || y < 0 || y >= image[INDEX].height())
+        return true;
+
     bool ret = true;
 
     /* Vertical check "up"*/
-    for (int i = x - 1; i > 0; --i)
+    for (int i = x - 1; i >= 0; --i)
     {
         if (isBlack(image[INDEX].pixel(i, y)))
         {
@@ -148,7 +179,7 @@ bool MainWindow::checkIfAtBorder(int x, int y)
     ret = true;
 
     /* Horizontal check "left" */
-    for (int i = y - 1; i > 0; --i)
+    for (int i = y - 1; i >= 0; --i)
     {
         if (isBlack(image[INDEX].pixel(x, i)))
         {
@@ -183,6 +214,8 @@ bool MainWindow::isBifurcation(int x, int y)
 
     for (int i = 0; i < 4; ++i)
     {
+        if (x + coords[i][0] < 0 || x + coords[i][0] >= image[INDEX].width() || y + coords[i][1] < 0 || y + coords[i][1] >= image[INDEX].height())
+            continue;
         if (isBlack(image[INDEX].pixel(x + coords[i][0], y + coords[i][1])))
             ++count;
     }
@@ -261,8 +294,6 @@ QList<QPoint> MainWindow::findNextPixel(QPoint current, bool &foundMinutiae)
 
 void MainWindow::searchLine(int x, int y)
 {
-    qStdOut() << "searchLine(" << x << ", " << y << ")" << endl;
-
     QPoint current(x, y);
     QList<QPoint> toList;
     QList<QPoint> possibleMinutiaes;
@@ -304,13 +335,13 @@ void MainWindow::searchMinutiae()
     {
         for (int y = 0; y < imageCopy[INDEX].height(); ++y)
         {
-           if (checkedPixels[INDEX][x][y])
-               continue;
+            if (checkedPixels[INDEX][x][y])
+                continue;
 
-           QRgb rgb = imageCopy[INDEX].pixel(x, y);
+            QRgb rgb = imageCopy[INDEX].pixel(x, y);
 
-           if (isBlack(rgb))
-               searchLine(x, y);
+            if (isBlack(rgb))
+                searchLine(x, y);
         }
     }
 }
@@ -318,9 +349,9 @@ void MainWindow::searchMinutiae()
 int MainWindow::weight(int x, int y)
 {
     return 1*(K3MImageArray[INDEX][x][y-1] % 2) + 2*(K3MImageArray[INDEX][x+1][y-1] % 2)+
-    64*(K3MImageArray[INDEX][x-1][y] % 2) + 4*(K3MImageArray[INDEX][x+1][y] % 2)+
-    32*(K3MImageArray[INDEX][x-1][y+1] % 2) + 16*(K3MImageArray[INDEX][x][y+1] % 2)+
-    8*(K3MImageArray[INDEX][x+1][y+1] % 2) + 128*(K3MImageArray[INDEX][x-1][y-1] % 2);
+            64*(K3MImageArray[INDEX][x-1][y] % 2) + 4*(K3MImageArray[INDEX][x+1][y] % 2)+
+            32*(K3MImageArray[INDEX][x-1][y+1] % 2) + 16*(K3MImageArray[INDEX][x][y+1] % 2)+
+            8*(K3MImageArray[INDEX][x+1][y+1] % 2) + 128*(K3MImageArray[INDEX][x-1][y-1] % 2);
 }
 
 bool MainWindow::checkArray(int weight, int phase)
@@ -352,26 +383,26 @@ void MainWindow::thinImage(QImage *img, int phase)
     bool thinned;
     do
     {
-       thinned = true;
-       for (int x = 1; x < img->width() - 1; ++x)
-       {
-           for (int y = 1; y < img->height() - 1; ++y)
-           {
-               if (K3MImageArray[INDEX][x][y] == 1)
-               {
-                   if (checkArray(weight(x, y), 0))
-                   {
-                       int w = weight(x, y);
+        thinned = true;
+        for (int x = 1; x < img->width() - 1; ++x)
+        {
+            for (int y = 1; y < img->height() - 1; ++y)
+            {
+                if (K3MImageArray[INDEX][x][y] == 1)
+                {
+                    if (checkArray(weight(x, y), 0))
+                    {
+                        int w = weight(x, y);
 
-                       if (checkArray(w, phase))
-                       {
-                           K3MImageArray[INDEX][x][y] = 0;
-                           thinned = false;
-                       }
-                   }
-               }
-           }
-       }
+                        if (checkArray(w, phase))
+                        {
+                            K3MImageArray[INDEX][x][y] = 0;
+                            thinned = false;
+                        }
+                    }
+                }
+            }
+        }
     }while (!thinned);
 
     /* Mark even pixels as background and odd as image */
@@ -515,7 +546,14 @@ void MainWindow::makeGraph()
                 }
             }
         }
+        //insertNeighboursIntoDatabase(minutiaes[INDEX][i]);
     }
+}
+
+void MainWindow::insertNeighboursIntoDatabase(Minutiae *minutiae)
+{
+    for (int i = 0; i < minutiae->neighbours.count(); ++i)
+        dbHelper.insertMinutiaeMinutiae(minutiae->id, minutiae->neighbours[i]->id);
 }
 
 void MainWindow::on_loadButton_clicked()
@@ -536,20 +574,27 @@ void MainWindow::on_loadButton_clicked()
         ui->imageView->setPixmap(QPixmap::fromImage(image[0]));
         ui->imageView->setScaledContents(true);
 
-        checkedPixels[0] = new bool*[image[0].width()];
-        for (int i = 0; i < image[0].width(); ++i)
-            checkedPixels[0][i] = new bool[image[0].height()];
+        if (ui->addToDbButton->isChecked())
+            ID = dbHelper.insertImage(filename);
 
-        for (int i = 0; i < image[0].width(); ++i)
-            for (int j = 0; j < image[0].height(); ++j)
-                checkedPixels[0][i][j] = false;
+        if (!firstLoad[0])
+        {
+            checkedPixels[0] = new bool*[image[0].width()];
+            foundMinutiaes[0] = new bool*[image[0].width()];
+            for (int i = 0; i < image[0].width(); ++i)
+            {
+                checkedPixels[0][i] = new bool[image[0].height()];
+                foundMinutiaes[0][i] = new bool[image[0].height()];
+            }
 
-        K3MImageArray[0] = new int*[image[0].width()];
+            K3MImageArray[0] = new int*[image[0].width()];
 
-        for (int i = 0; i < image[0].width(); ++i)
-            K3MImageArray[0][i] = new int[image[0].height()];
+            for (int i = 0; i < image[0].width(); ++i)
+                K3MImageArray[0][i] = new int[image[0].height()];
+        }
 
         lastFileName = filename;
+        firstLoad[0] = true;
     }
 }
 
@@ -571,20 +616,24 @@ void MainWindow::on_loadButton2_clicked()
         ui->imageView2->setPixmap(QPixmap::fromImage(image[1]));
         ui->imageView2->setScaledContents(true);
 
-        checkedPixels[1] = new bool*[image[1].width()];
-        for (int i = 0; i < image[1].width(); ++i)
-            checkedPixels[1][i] = new bool[image[1].height()];
+        if (!firstLoad[1])
+        {
+            checkedPixels[1] = new bool*[image[1].width()];
+            foundMinutiaes[1] = new bool*[image[1].width()];
+            for (int i = 0; i < image[1].width(); ++i)
+            {
+                checkedPixels[1][i] = new bool[image[1].height()];
+                foundMinutiaes[1][i] = new bool[image[1].height()];
+            }
 
-        for (int i = 0; i < image[1].width(); ++i)
-            for (int j = 0; j < image[1].height(); ++j)
-                checkedPixels[1][i][j] = false;
+            K3MImageArray[1] = new int*[image[1].width()];
 
-        K3MImageArray[1] = new int*[image[1].width()];
-
-        for (int i = 0; i < image[1].width(); ++i)
-            K3MImageArray[1][i] = new int[image[1].height()];
+            for (int i = 0; i < image[1].width(); ++i)
+                K3MImageArray[1][i] = new int[image[1].height()];
+        }
 
         lastFileName = filename;
+        firstLoad[1] = true;
     }
 }
 
@@ -595,8 +644,13 @@ void MainWindow::on_findButton_clicked()
     TYPE = true;
 
     for (int i = 0; i < image[INDEX].width(); ++i)
+    {
         for (int j = 0; j < image[INDEX].height(); ++j)
+        {
             checkedPixels[INDEX][i][j] = false;
+            foundMinutiaes[INDEX][i][j] = false;
+        }
+    }
 
     minutiaes[INDEX].clear();
 
@@ -636,8 +690,13 @@ void MainWindow::on_findButton2_clicked()
     TYPE = true;
 
     for (int i = 0; i < image[INDEX].width(); ++i)
+    {
         for (int j = 0; j < image[INDEX].height(); ++j)
+        {
             checkedPixels[INDEX][i][j] = false;
+            foundMinutiaes[INDEX][i][j] = false;
+        }
+    }
 
     minutiaes[INDEX].clear();
 
@@ -678,6 +737,10 @@ void MainWindow::on_checkButton_clicked()
     QList<Minutiae*> matchedMinutiaes;
     int goodVertices = 0;
     int maxFound = 0;
+    for (int i = 0; i < minutiaes[0].count(); ++i)
+        minutiaes[0][i]->checked = false;
+    for (int i = 0; i < minutiaes[1].count(); ++i)
+        minutiaes[1][i]->checked = false;
 
     for (int i = 0; i < minutiaes[0].count(); ++i)
     {
@@ -733,8 +796,21 @@ void MainWindow::on_checkButton_clicked()
             if (goodVertices >= minMatched || (double)goodVertices/(double)minutiaes[0].count() * 100 >= minTreshold)
             {
                 double percent = (double)goodVertices/(double)minutiaes[0].count() * 100;
-                QMessageBox::information(this, tr("Match confirmed!"),
-                                         tr("Matched %1 vertices which makes %2% of compatibility!").arg(goodVertices).arg(percent));
+                if (!findMatch)
+                {
+                    QMessageBox::information(this, tr("Match confirmed!"),
+                                            tr("Matched %1 vertices which makes %2% of compatibility!").arg(goodVertices).arg(percent));
+                }
+                else
+                {
+                    if (percent > BEST_TRESHOLD && goodVertices > BEST_VERTICES)
+                    {
+                        BEST_VERTICES = goodVertices;
+                        BEST_TRESHOLD = percent;
+                        bestImage = image[1];
+                        betterMatchFound = true;
+                    }
+                }
                 return;
             }
             else
@@ -748,6 +824,86 @@ void MainWindow::on_checkButton_clicked()
             }
         }
     }
-    QMessageBox::warning(this, tr("No match"), tr("Fingerprints not matched\n Matched vertices: %1 which makes %2% of compatibility")
-                         .arg(maxFound).arg((double)maxFound/(double)minutiaes[0].count() * 100));
+    if (!findMatch)
+    {
+        QMessageBox::warning(this, tr("No match"), tr("Fingerprints not matched\n Matched vertices: %1 which makes %2% of compatibility")
+                             .arg(maxFound).arg((double)maxFound/(double)minutiaes[0].count() * 100));
+    }
+    else
+    {
+        if (maxFound > BEST_VERTICES && ((double)maxFound/(double)minutiaes[0].count() * 100) > BEST_TRESHOLD)
+        {
+            BEST_VERTICES = maxFound;
+            BEST_TRESHOLD = (double)maxFound/(double)minutiaes[0].count() * 100;
+            bestImage = image[1];
+            betterMatchFound = true;
+        }
+    }
+}
+
+void MainWindow::on_findMatchButton_clicked()
+{
+    findMatch = true;
+    BEST_VERTICES = 0;
+    BEST_TRESHOLD = 0;
+
+    QList<QString> imagesNames;
+    QList<QByteArray> imagesByteArray = dbHelper.selectImages(imagesNames);
+
+    for (int i = 0; i < imagesByteArray.count(); ++i)
+    {
+        QPixmap pixmap = QPixmap();
+        pixmap.loadFromData(imagesByteArray[i]);
+        image[1] = pixmap.toImage();
+
+        if (!firstLoad[1])
+        {
+            checkedPixels[1] = new bool*[image[1].width()];
+            foundMinutiaes[1] = new bool*[image[1].width()];
+            for (int i = 0; i < image[1].width(); ++i)
+            {
+                checkedPixels[1][i] = new bool[image[1].height()];
+                foundMinutiaes[1][i] = new bool[image[1].height()];
+            }
+
+            K3MImageArray[1] = new int*[image[1].width()];
+
+            for (int i = 0; i < image[1].width(); ++i)
+                K3MImageArray[1][i] = new int[image[1].height()];
+        }
+
+        firstLoad[1] = true;
+
+        betterMatchFound = false;
+        on_findButton2_clicked();
+        on_checkButton_clicked();
+
+        if (betterMatchFound)
+        {
+            indexOfImageName = i;
+            if (ui->firstMatchButton->isChecked() && BEST_VERTICES > ui->matchedVertices->toPlainText().toInt() || BEST_TRESHOLD >= ui->treshold->toPlainText().toDouble())
+                break;
+        }
+    }
+
+    ui->imageView2->setPixmap(QPixmap::fromImage(image[1]));
+    ui->imageView2->setScaledContents(true);
+
+    if (BEST_VERTICES >= ui->matchedVertices->toPlainText().toInt() || BEST_TRESHOLD >= ui->treshold->toPlainText().toDouble())
+    {
+        QMessageBox::information(this, tr("Match found!"),
+                                tr("FileName: %1\n"
+                                   "Matched %2 vertices which makes %3% of compatibility!").arg(imagesNames[indexOfImageName]).arg(BEST_VERTICES).arg(BEST_TRESHOLD));
+    }
+    else
+    {
+        QMessageBox::warning(this, tr("No match found"), tr("Fingerprint not found\n "
+                                                            "Best match found: %1\n"
+                                                            "Matched vertices: %2 which makes %3% of compatibility")
+                                                            .arg(imagesNames[indexOfImageName]).arg(BEST_VERTICES).arg(BEST_TRESHOLD));
+    }
+
+
+    findMatch = false;
+
 }
