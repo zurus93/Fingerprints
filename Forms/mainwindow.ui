@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>760</width>
+    <width>804</width>
     <height>459</height>
    </rect>
   </property>
@@ -22,7 +22,7 @@
     <property name="geometry">
      <rect>
       <x>610</x>
-      <y>30</y>
+      <y>0</y>
       <width>111</width>
       <height>23</height>
      </rect>
@@ -48,7 +48,7 @@
     <property name="geometry">
      <rect>
       <x>610</x>
-      <y>60</y>
+      <y>30</y>
       <width>111</width>
       <height>23</height>
      </rect>
@@ -61,7 +61,7 @@
     <property name="geometry">
      <rect>
       <x>610</x>
-      <y>210</y>
+      <y>160</y>
       <width>75</width>
       <height>23</height>
      </rect>
@@ -87,7 +87,7 @@
     <property name="geometry">
      <rect>
       <x>610</x>
-      <y>120</y>
+      <y>80</y>
       <width>111</width>
       <height>23</height>
      </rect>
@@ -100,7 +100,7 @@
     <property name="geometry">
      <rect>
       <x>610</x>
-      <y>150</y>
+      <y>110</y>
       <width>111</width>
       <height>23</height>
      </rect>
@@ -125,8 +125,8 @@
    <widget class="QLabel" name="label">
     <property name="geometry">
      <rect>
-      <x>590</x>
-      <y>250</y>
+      <x>610</x>
+      <y>330</y>
       <width>161</width>
       <height>21</height>
      </rect>
@@ -149,9 +149,9 @@
    <widget class="QLabel" name="label_2">
     <property name="geometry">
      <rect>
-      <x>610</x>
-      <y>290</y>
-      <width>131</width>
+      <x>600</x>
+      <y>350</y>
+      <width>111</width>
       <height>16</height>
      </rect>
     </property>
@@ -162,7 +162,7 @@
    <widget class="QLabel" name="label_3">
     <property name="geometry">
      <rect>
-      <x>610</x>
+      <x>730</x>
       <y>350</y>
       <width>47</width>
       <height>13</height>
@@ -175,8 +175,8 @@
    <widget class="QTextEdit" name="matchedVertices">
     <property name="geometry">
      <rect>
-      <x>610</x>
-      <y>310</y>
+      <x>650</x>
+      <y>370</y>
       <width>41</width>
       <height>31</height>
      </rect>
@@ -192,7 +192,7 @@ p, li { white-space: pre-wrap; }
    <widget class="QTextEdit" name="treshold">
     <property name="geometry">
      <rect>
-      <x>610</x>
+      <x>730</x>
       <y>370</y>
       <width>41</width>
       <height>31</height>
@@ -209,7 +209,7 @@ p, li { white-space: pre-wrap; }
    <widget class="QLabel" name="label_4">
     <property name="geometry">
      <rect>
-      <x>660</x>
+      <x>780</x>
       <y>380</y>
       <width>21</width>
       <height>16</height>
@@ -224,13 +224,81 @@ p, li { white-space: pre-wrap; }
      <string>%</string>
     </property>
    </widget>
+   <widget class="QPushButton" name="findMatchButton">
+    <property name="geometry">
+     <rect>
+      <x>610</x>
+      <y>190</y>
+      <width>75</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>FindMatch</string>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="addToDbButton">
+    <property name="geometry">
+     <rect>
+      <x>600</x>
+      <y>310</y>
+      <width>101</width>
+      <height>17</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Add to Database</string>
+    </property>
+   </widget>
+   <widget class="QGroupBox" name="findMatchGroupBox">
+    <property name="geometry">
+     <rect>
+      <x>640</x>
+      <y>220</y>
+      <width>121</width>
+      <height>81</height>
+     </rect>
+    </property>
+    <property name="title">
+     <string>FindMatch options</string>
+    </property>
+    <widget class="QRadioButton" name="firstMatchButton">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>20</y>
+       <width>82</width>
+       <height>17</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>First Match</string>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
+     </property>
+    </widget>
+    <widget class="QRadioButton" name="bestMatchButton">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>50</y>
+       <width>82</width>
+       <height>17</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Best Match</string>
+     </property>
+    </widget>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>760</width>
+     <width>804</width>
      <height>21</height>
     </rect>
    </property>
